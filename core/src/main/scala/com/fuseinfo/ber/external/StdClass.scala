@@ -21,9 +21,9 @@ package com.fuseinfo.ber.external
 
 import org.apache.spark.sql.Row
 
-trait StdClass {
+trait StdClass[IN] {
   def setup(params: String)
   
-  def apply(input: Row):AnyRef
+  def apply(input: IN):AnyRef
 
 }

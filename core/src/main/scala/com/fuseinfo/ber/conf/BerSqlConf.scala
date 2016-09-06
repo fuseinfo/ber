@@ -22,7 +22,7 @@ package com.fuseinfo.ber.conf
 import java.sql.{Connection, DriverManager}
 import org.apache.spark.SparkConf
 
-class BerConf(val entity: String, val conf: SparkConf) {
+class BerSqlConf(val conf: SparkConf) {
   private val confMap = scala.collection.mutable.Map[String, String]()
   val confDriver = conf get "ber.confDriver"
   val confUrl    = conf get "ber.confUrl"
@@ -53,6 +53,11 @@ class BerConf(val entity: String, val conf: SparkConf) {
   }
   
   def getValuesByPrefix(prefix: String) = {
-    confMap.filter(kv => kv._1.startsWith(prefix))
+    confMap.filter(kv => kv._1.startsWith(prefix)).toMap
+  }
+  
+  def getValuesByGroup(group: String) = {
+    val len = group.length + 1;
+    getValuesByPrefix(group + ".").map(kv => kv._1.substring(len) -> kv._2)
   }
 }
