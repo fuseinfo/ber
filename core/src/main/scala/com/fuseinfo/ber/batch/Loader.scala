@@ -21,11 +21,15 @@ package com.fuseinfo.ber.batch
 
 import com.fuseinfo.ber.external._
 import com.fuseinfo.ber.conf._
+import com.fuseinfo.ber.util._
 import java.lang.reflect.{Field}
+import java.io.ByteArrayOutputStream
+import org.apache.spark.storage.StorageLevel
 import org.apache.spark.sql.{SQLContext, Row}
 import org.apache.spark.{SparkConf, SparkContext}
 import scala.collection.{Map, Seq}
 import scala.collection.mutable.ArrayBuffer
+import com.fuseinfo.ber.util.MathUtils
 
 /**
  * @author Yang Li
@@ -36,6 +40,7 @@ object Loader {
     val conf = new SparkConf().setAppName("BerLoader")
     val sc = new SparkContext(conf)
     val sqlContext = new SQLContext(sc)
+    val newLevel = StorageLevel.MEMORY_AND_DISK_SER
     
     //Step 1. Load configurations
     val entityProps = loadConf(conf)
@@ -137,12 +142,53 @@ object Loader {
         }
       })
       stdBase
-    }).zipWithUniqueId.map(f => (f._2, f._1))
+    }).zipWithUniqueId.map(f => (f._2, f._1)).persist(newLevel)
     
     
     //Step 5. persist STD_RDD to K/V store
     
     //Step 6. bucket STD_RDD to multiple BKT_RDD <Long, Set<Long>>
+    val bktFuncs = entityProps.filter(kv => kv._1.startsWith("bkt.")).values
+    val bktRDDs = bktFuncs.map(bktFunc => {
+      val fieldDefs = bktFunc.split(";").map(fieldName => {
+        val idx = fieldName.indexOf('.')
+        if (idx > 0) {
+          if (fieldName.charAt(idx - 1) == ']') {
+            val beginIdx = fieldName.indexOf('[')
+            val field = fieldMap.get(fieldName.substring(0, beginIdx)).get
+            val subField = field.getClass.getField(fieldName.substring(idx + 1))
+            (field, fieldName.substring(beginIdx + 1, idx - 1), subField)
+          } else {
+            val field = fieldMap.get(fieldName.substring(0, idx)).get
+            val subFields = fieldName.substring(idx + 2, fieldName.length - 1).split("\\,").map(subField => field.getClass.getDeclaredField(subField))
+            (field, subFields)
+          }
+        } else {
+          fieldMap.get(fieldName).get
+        }
+      })
+      stdRDD.flatMap(stdObj => {
+        val baos = new ByteArrayOutputStream
+        for (fieldDef <- fieldDefs) {
+          fieldDef match {
+            case (field: Field, key: String, subField: Field) => {
+              
+            }
+            case (field: Field, subFields: Array[Field]) => {
+              
+            }
+            case field:Field => {
+              val fieldValue = field.get(stdObj)
+              if (fieldValue == null) {
+                return Array()
+              }
+              baos.write(field.get(stdObj).toString().getBytes)
+            }
+          }
+        }
+        new Array[Tuple2[Long, Long]](0)
+      })
+    })
 
     
     //Step 7. persist BKT_RDD to K/V store
@@ -153,6 +199,77 @@ object Loader {
     
   }
   
+  def hash(bytes: Array[Byte]) : Long = {
+    MathUtils.murmurHash64A(bytes, bytes.length, 0)
+  }
+  
+  def hash(base: Array[Byte], bytes: Array[Byte]) : Long = {
+    val both = new Array[Byte](base.length + bytes.length)
+    System.arraycopy(base, 0, both, 0, base.length)
+    System.arraycopy(bytes, 0, both, base.length, bytes.length)
+    hash(both)
+  }
+  
+  /*
+   * Given a fieldDef and object, return a TraversableOnce object of hash numbers
+   */
+  def calcHash(fieldDefs:Array[AnyRef], stdObj:(Long, AnyRef)): TraversableOnce[Long] = {
+    val baos = new ByteArrayOutputStream
+
+    for (fieldDef <- fieldDefs) {
+      fieldDef match {
+        // a single value from a map
+        case (field: Field, key: String, subField: Field) => {
+          val fieldValue = field.get(stdObj)
+          if (fieldValue == null || !fieldValue.isInstanceOf[Map[String, AnyRef]]) {
+            return new Array[Long](0)
+          }
+          val subValue = fieldValue.asInstanceOf[Map[String, AnyRef]].get(key) match {
+            case Some(subObj) => subField.get(subObj)
+            case None => return new Array[Long](0)
+          }
+          if (subValue == null) {
+            return new Array[Long](0)
+          }
+          baos.write(subValue.toString.getBytes)
+        }
+        // multiple values from a child list
+        case (field: Field, subFields: Array[Field]) => {
+          val fieldValues = field.get(stdObj)
+          if (fieldValues == null || !fieldValues.isInstanceOf[scala.collection.mutable.Buffer[AnyRef]]) {
+            return new Array[Long](0)
+          }
+          val fieldValArray = fieldValues.asInstanceOf[scala.collection.mutable.Buffer[AnyRef]]
+          baos.flush
+          val base = baos.toByteArray
+          return fieldValArray.flatMap( fieldVal => {
+            try {
+              val baos2 = new ByteArrayOutputStream
+              for (subField <- subFields) {
+                val subVal = subField.get(fieldVal)
+                baos2.write(subVal.toString().getBytes)
+              }
+              baos2.flush()
+              Some(hash(base, baos2.toByteArray))
+            } catch {
+              case e: Exception => None
+            }            
+          })
+        }
+        // single value
+        case field:Field => {
+          val fieldValue = field.get(stdObj)
+          if (fieldValue == null) {
+            return new Array[Long](0)
+          }
+          baos.write(fieldValue.toString.getBytes)
+        }
+      }
+    }
+    baos.flush
+    Array[Long](hash(baos.toByteArray))
+  }
+
   def parseColumnName(columnName: String) = {
     val beginIndex = columnName.indexOf('[')
     if (beginIndex > 0 && columnName.endsWith("]")) {
