@@ -19,8 +19,12 @@
 
 package com.fuseinfo.ber.util;
 
-public class MathUtils {
-    public static long murmurHash64A(final byte[] key, int len, final int seed) {
+import java.io.Serializable;
+
+public class MathUtils implements Serializable{
+	private static final long serialVersionUID = -8286494420420192011L;
+
+	public static long murmurHash64A(final byte[] key, int len, final int seed) {
         final long m = 0xc6a4a7935bd1e995L;
         final int r = 47;
         int size = len - 7;
@@ -55,5 +59,8 @@ public class MathUtils {
         return h;
     }
 
-
+	public static long murmurHash64A(String key, final int seed) {
+		byte[] data = key.getBytes();
+		return murmurHash64A(data, data.length, seed);
+	}
 }

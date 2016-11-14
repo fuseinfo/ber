@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="configuration.xsl"?>
+<configuration>
+	<property>
+		<name>ber.loader.sql</name>
+		<value><![CDATA[SELECT clientid, firstnames, lastnames, identifications, address FROM person]]></value>
+	</property>
+
+	<property>
+		<name>ber.loader.pk</name>
+		<value>clientid</value>
+	</property>
+	
+	<property>
+		<name>ber.buckets.max</name>
+		<value>100000</value>
+	</property>
+	
+	<property>
+		<name>ber.standardizer.firstnames</name>
+		<value>GinapStandardizer</value>
+	</property>
+	
+	<property>
+		<name>ber.standardizer.lastnames</name>
+		<value>DoubleMetaphoneStandardizer</value>
+	</property>
+	<property>
+		<name>ber.standardizer.identifications</name>
+		<value>IdentificationStandardizer</value>
+	</property>
+	<property>
+		<name>ber.standardizer.address</name>
+		<value>-AddressStandardizer</value>
+	</property>
+</configuration>
