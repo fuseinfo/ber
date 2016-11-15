@@ -127,14 +127,14 @@ class Loader {
     
   def expandRdd(hashedRdd: RDD[(Long, Map[Byte, Any])]) =
     hashedRdd.flatMap{case (pk, attrs) => 
-      attrs.flatMap{case (typ, attr) => 
-        if (attr.isInstanceOf[Iterable[Any]])
-          attr.asInstanceOf[Iterable[Any]].map{data => 
-            if (data.isInstanceOf[Long]) ((typ, data.asInstanceOf[Long]), pk)
-            else ((typ, stringHash(data.toString)), pk)
+      attrs.flatMap{
+        case (typ, attr:Iterable[Any]) => 
+          attr.asInstanceOf[Iterable[Any]].map{
+            case data:Long => ((typ, data), pk)
+            case data => ((typ, stringHash(data.toString)), pk)
           }
-        else if (attr.isInstanceOf[Long]) ((typ, attr.asInstanceOf[Long]), pk)::Nil
-        else ((typ, stringHash(attr.toString)), pk)::Nil
+        case (typ, attr:Long) => ((typ, attr), pk)::Nil
+        case (typ, attr) => ((typ, stringHash(attr.toString)), pk)::Nil
       }
     }
   
