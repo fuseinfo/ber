@@ -17,20 +17,20 @@
 	</property>
 	
 	<property>
-		<name>ber.standardizer.firstnames</name>
-		<value>GinapStandardizer</value>
+		<name>ber.standardizer.0.firstnames</name>
+		<value>com.fuseinfo.ber.standardizer.GinapStandardizer,/ginap-m.txt</value>
 	</property>
 	
 	<property>
-		<name>ber.standardizer.lastnames</name>
-		<value>DoubleMetaphoneStandardizer</value>
+		<name>ber.standardizer.1.lastnames</name>
+		<value>com.fuseinfo.ber.standardizer.StringEncoderStandardizer,org.apache.commons.codec.language.DoubleMetaphone</value>
 	</property>
 	<property>
-		<name>ber.standardizer.identifications</name>
-		<value>IdentificationStandardizer</value>
+		<name>ber.standardizer.2.identifications</name>
+		<value>com.fuseinfo.ber.standardizer.IdentificationStandardizer</value>
 	</property>
 	<property>
-		<name>ber.standardizer.address</name>
-		<value>-AddressStandardizer</value>
+		<name>ber.standardizer.3.address</name>
+		<value>com.fuseinfo.ber.standardizer.AddressStandardizer</value>
 	</property>
 </configuration>

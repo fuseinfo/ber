@@ -63,4 +63,9 @@ public class MathUtils implements Serializable{
 		byte[] data = key.getBytes();
 		return murmurHash64A(data, data.length, seed);
 	}
+	
+	public static long murmurHash64A(String key) {
+		byte[] data = key.getBytes();
+		return murmurHash64A(data, data.length, 0);
+	}
 }
